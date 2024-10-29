@@ -89,3 +89,4 @@ LABEL name="Argo Rollouts Kubectl plugin binaries" \
 
 # Define the entrypoint
 # ENTRYPOINT ["<entrypoint-executable>"]
+
