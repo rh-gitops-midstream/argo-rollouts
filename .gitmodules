@@ -1,0 +1,4 @@
+[submodule "argo-rollouts"]
+	path = argo-rollouts
+	url = https://github.com/argoproj/argo-rollouts.git
+    branch = main

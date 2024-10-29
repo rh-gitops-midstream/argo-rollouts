@@ -1,0 +1,125 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: argo-rollouts-integration-test
+spec:
+  params:
+    - name: SNAPSHOT
+      description: 'Snapshot of the application'
+    - name: EXPECTED_BINARIES
+      description: 'List of binaries expected in the image'
+      default: 'kubectl-argo-rollouts-linux-amd64,kubectl-argo-rollouts-linux-arm64,kubectl-argo-rollouts-darwin-amd64,kubectl-argo-rollouts-darwin-arm64'
+  tasks:
+    - name: pull-and-verify-binaries
+      taskSpec:
+        params:
+          - name: EXPECTED_BINARIES
+            default: 'kubectl-argo-rollouts-linux-amd64,kubectl-argo-rollouts-linux-arm64,kubectl-argo-rollouts-darwin-amd64,kubectl-argo-rollouts-darwin-arm64'
+        volumes:
+          - name: oras-volume
+            emptyDir: {}  # Using an emptyDir volume to share data across steps
+        steps:
+          # Step 1: Install ORAS (version 1.2.0)
+          - name: install-oras
+            image: registry.access.redhat.com/ubi8/ubi
+            script: |
+              VERSION="1.2.0"
+              echo "Installing ORAS version $VERSION..."
+              curl -LO "https://github.com/oras-project/oras/releases/download/v${VERSION}/oras_${VERSION}_linux_amd64.tar.gz"
+              mkdir -p /workspace/oras-install/
+              tar -zxf oras_${VERSION}_*.tar.gz -C /workspace/oras-install/
+              rm -rf oras_${VERSION}_*.tar.gz
+              
+              # Verify installation
+              /workspace/oras-install/oras version
+            volumeMounts:
+              - name: oras-volume
+                mountPath: /workspace/oras-install
+
+          # Step 2: Pull the image, extract the binaries using ORAS and verify the expected binaries exist
+          - name: pull-extract-and-verify-binaries
+            image: registry.access.redhat.com/ubi8/ubi
+            script: |
+              # Install jq to extract values from SNAPSHOT
+              dnf -y install jq
+
+              # Extract container image url from snapshot for testing
+              IMAGE_URL=$(echo '$(params.SNAPSHOT)' | jq -r '.components[0].containerImage')
+              echo "IMAGE_URL: $IMAGE_URL"
+
+              echo "Pulling the image $IMAGE_URL with ORAS and extracting binaries..."          
+              # Install the 'file' utility for binary type detection
+              echo "Installing 'file' utility..."
+              yum install -y file
+
+              # Create a directory for OCI layout
+              mkdir -p ./oci-layout
+
+              # Pull all image layers using ORAS and store in the OCI layout directory
+              /workspace/oras-install/oras copy $IMAGE_URL --to-oci-layout ./oci-layout
+
+              # List the pulled files
+              echo "Listing files in OCI layout:"
+              find ./oci-layout
+
+              # Move the binaries from the layout to ./platform-binaries
+              mkdir -p ./platform-binaries
+              cp ./oci-layout/blobs/sha256/* ./platform-binaries
+              
+              # Extract the binaries
+              for blob in $(ls ./oci-layout/blobs/sha256/*); do
+                tar tf ${blob} &> /dev/null && tar tvf ${blob} | grep 'kubectl-argo-rollouts' &> /dev/null && tar xvf ${blob} -C ./platform-binaries 'kubectl-argo-rollouts-*'
+              done
+              
+              echo "List the extracted binaries to verify"
+              ls ./platform-binaries
+
+              echo "Verify that expected binaries exist"
+              IFS=',' read -r -a binaries <<< "$(params.EXPECTED_BINARIES)"
+              for binary in "${binaries[@]}"; do
+                if [[ ! -f "./platform-binaries/$binary" ]]; then
+                  echo "ERROR: $binary not found!"
+                  exit 1
+                else
+                  echo "$binary exists."
+                fi
+              done
+              
+              echo "Verify binary architecture using the file command"
+              for binary in "${binaries[@]}"; do
+                binary_arch=$(file ./platform-binaries/$binary)
+                echo "Checking architecture of $binary: $binary_arch"
+
+                # Check for expected architecture based on binary name
+                case $binary in
+                  *linux-amd64*)
+                    echo "$binary is expected to be a 64-bit Linux binary (x86_64)"
+                    echo "$binary_arch" | grep '64-bit.*x86-64' &> /dev/null || { echo "ERROR: Architecture mismatch for $binary"; exit 1; }
+                    ;;
+                  *linux-arm64*)
+                    echo "$binary is expected to be a 64-bit Linux binary (ARM64)"
+                    echo "$binary_arch" | grep '64-bit.*ARM aarch64' &> /dev/null || { echo "ERROR: Architecture mismatch for $binary"; exit 1; }
+                    ;;
+                  *darwin-amd64*)
+                    echo "$binary is expected to be a 64-bit Darwin binary (x86_64)"
+                    echo "$binary_arch" | grep 'Mach-O.*x86_64' &> /dev/null || { echo "ERROR: Architecture mismatch for $binary"; exit 1; }
+                    ;;
+                  *darwin-arm64*)
+                    echo "$binary is expected to be a 64-bit Darwin binary (ARM64)"
+                    echo "$binary_arch" | grep 'Mach-O.*arm64' &> /dev/null || { echo "ERROR: Architecture mismatch for $binary"; exit 1; }
+                    ;;
+                  *windows-amd64*)
+                    echo "$binary is expected to be a 64-bit Windows binary (x86_64)"
+                    echo "$binary_arch" | grep 'PE32+ executable.*x86-64' &> /dev/null || { echo "ERROR: Architecture mismatch for $binary"; exit 1; }
+                    ;;
+                  *)
+                    echo "Unknown binary: $binary"
+                    exit 1
+                    ;;
+                esac
+              done
+
+              echo "All expected binaries verified successfully with correct architectures!"              
+            volumeMounts:
+              - name: oras-volume
+                mountPath: /workspace/oras-install
