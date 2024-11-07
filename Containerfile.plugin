@@ -1,30 +1,4 @@
 ####################################################################################################
-# UI build stage
-####################################################################################################
-FROM registry.access.redhat.com/ubi9/nodejs-18:1-118.1724037695 AS argo-rollouts-ui
-
-WORKDIR /src
-
-# Copy the UI source files into the container
-COPY argo-rollouts/ui .
-
-# Install Yarn
-RUN npm install --global yarn
-
-# Set the user to the default non-root user provided by UBI
-USER root
-
-# Install dependencies
-RUN yarn install --network-timeout 300000
-
-# Set the Argon version argument
-ARG ARGO_VERSION=latest
-ENV ARGO_VERSION=$ARGO_VERSION
-
-# Build the UI application
-RUN NODE_ENV='production' yarn build
-
-####################################################################################################
 # Rollout Controller Build stage which performs the actual build of argo-rollouts binaries
 ####################################################################################################
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 AS argo-rollouts-build
@@ -39,8 +13,8 @@ USER root
 COPY argo-rollouts/go.mod argo-rollouts/go.sum ./
 RUN go mod download
 
-# Copy UI files for plugin build
-COPY --from=argo-rollouts-ui /src/dist/app ./ui/dist/app
+# Copy pre-built UI files for the plugin build
+COPY argo-rollouts-ui-builds/1264f8d9b31c53177b666a9145bdb02476f271ad ./ui/dist
 
 # Copy the rest of the argo-rollouts source files
 COPY argo-rollouts .
@@ -54,7 +28,7 @@ RUN rm -rf /go/src/github.com/argoproj/argo-rollouts/.git
 # Copy the .git directory if needed for the build (e.g., for git metadata)
 COPY .git /go/src/github.com/argoproj/argo-rollouts/.git
 
-# Create required UI build markers to avoid rebuilds without Yarn installed
+# Create required UI build markers to avoid rebuilds
 RUN touch ui/dist/node_modules.marker && \
     mkdir -p ui/dist/app && \
     touch ui/dist/app/index.html && \
@@ -68,7 +42,7 @@ RUN make plugin-linux plugin-darwin plugin-windows
 ####################################################################################################
 FROM registry.access.redhat.com/ubi8/ubi
 
-# this directory is checked by ecosystem-cert-preflight-checks task in Konflux
+# This directory is checked by the ecosystem-cert-preflight-checks task in Konflux
 COPY LICENSE /licenses/
 
 # Set the user to the default non-root user provided by UBI
@@ -76,6 +50,7 @@ USER 999
 
 WORKDIR /
 
+# Copy the built plugin binaries into the final image
 COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/dist/kubectl-argo-rollouts-darwin-amd64 /
 COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/dist/kubectl-argo-rollouts-darwin-arm64 /
 COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/dist/kubectl-argo-rollouts-linux-amd64 /
@@ -89,4 +64,3 @@ LABEL name="Argo Rollouts Kubectl plugin binaries" \
 
 # Define the entrypoint
 # ENTRYPOINT ["<entrypoint-executable>"]
-
