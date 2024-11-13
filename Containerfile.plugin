@@ -16,26 +16,19 @@ RUN go mod download
 # Copy pre-built UI files for the plugin build
 COPY argo-rollouts-ui-builds/1264f8d9b31c53177b666a9145bdb02476f271ad ./ui/dist
 
-# Copy the rest of the argo-rollouts source files
-COPY argo-rollouts .
+# Copy the project files, including the .git directory
+COPY . .
 
-# Run go mod vendor
-RUN go mod vendor
-
-# Ensure any pre-existing .git file or directory is removed before copying
-RUN rm -rf /go/src/github.com/argoproj/argo-rollouts/.git
-
-# Copy the .git directory if needed for the build (e.g., for git metadata)
-COPY .git /go/src/github.com/argoproj/argo-rollouts/.git
-
-# Create required UI build markers to avoid rebuilds
-RUN touch ui/dist/node_modules.marker && \
+# Create required UI build markers to avoid rebuilds without Yarn installed
+RUN cd argo-rollouts && \
+    mkdir -p ui/dist && \ 
+    touch ui/dist/node_modules.marker && \
     mkdir -p ui/dist/app && \
     touch ui/dist/app/index.html && \
     find ui/dist
 
 # Build the plugins for multiple platforms
-RUN make plugin-linux plugin-darwin plugin-windows
+RUN cd argo-rollouts && go mod vendor && make plugin-linux plugin-darwin plugin-windows
 
 ####################################################################################################
 # Package the binaries into the image using UBI (Universal Base Image)
@@ -51,11 +44,11 @@ USER 999
 WORKDIR /
 
 # Copy the built plugin binaries into the final image
-COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/dist/kubectl-argo-rollouts-darwin-amd64 /
-COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/dist/kubectl-argo-rollouts-darwin-arm64 /
-COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/dist/kubectl-argo-rollouts-linux-amd64 /
-COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/dist/kubectl-argo-rollouts-linux-arm64 /
-COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/dist/kubectl-argo-rollouts-windows-amd64 /
+COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/dist/kubectl-argo-rollouts-darwin-amd64 /
+COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/dist/kubectl-argo-rollouts-darwin-arm64 /
+COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/dist/kubectl-argo-rollouts-linux-amd64 /
+COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/dist/kubectl-argo-rollouts-linux-arm64 /
+COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/dist/kubectl-argo-rollouts-windows-amd64 /
 
 # Add required labels
 LABEL name="Argo Rollouts Kubectl plugin binaries" \
