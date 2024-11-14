@@ -14,14 +14,13 @@ COPY argo-rollouts/go.mod argo-rollouts/go.sum ./
 RUN go mod download
 
 # Copy pre-built UI files for the plugin build
-COPY argo-rollouts-ui-builds/1264f8d9b31c53177b666a9145bdb02476f271ad ./ui/dist
+COPY argo-rollouts-ui-builds/1264f8d9b31c53177b666a9145bdb02476f271ad/app argo-rollouts/ui/dist/app
 
 # Copy the project files, including the .git directory
 COPY . .
 
 # Create required UI build markers to avoid rebuilds without Yarn installed
 RUN cd argo-rollouts && \
-    mkdir -p ui/dist && \ 
     touch ui/dist/node_modules.marker && \
     mkdir -p ui/dist/app && \
     touch ui/dist/app/index.html && \
