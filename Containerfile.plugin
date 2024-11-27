@@ -40,7 +40,7 @@ COPY LICENSE /licenses/
 # Set the user to the default non-root user provided by UBI
 USER 999
 
-WORKDIR /
+WORKDIR /releases
 
 # Copy the built plugin binaries into the final image
 COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/dist/kubectl-argo-rollouts-darwin-amd64 /releases
