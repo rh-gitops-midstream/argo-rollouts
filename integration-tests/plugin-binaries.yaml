@@ -52,10 +52,6 @@ spec:
                 exit 1
               fi
 
-              # Extract container image url from snapshot for testing
-              IMAGE_URL=$(echo '$(params.SNAPSHOT)' | jq -r '.components[0].containerImage')
-              echo "IMAGE_URL: $IMAGE_URL"
-
               echo "Pulling the image $IMAGE_URL with ORAS and extracting binaries..."          
               # Install the 'file' utility for binary type detection
               echo "Installing 'file' utility..."
