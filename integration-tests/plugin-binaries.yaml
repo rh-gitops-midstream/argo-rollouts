@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: argo-rollouts-integration-test
+  name: argo-rollouts-cli-integration-test
 spec:
   params:
     - name: SNAPSHOT
@@ -44,7 +44,7 @@ spec:
               dnf -y install jq
 
               # Extract container image URL for Argo Rollouts from snapshot
-              IMAGE_URL=$(echo '$(params.SNAPSHOT)' | jq -r '.components[] | select(.name == "argo-rollouts") | .containerImage')
+              IMAGE_URL=$(echo '$(params.SNAPSHOT)' | jq -r '.components[] | select(.name == "argo-rollouts-cli") | .containerImage')
               echo "IMAGE_URL: $IMAGE_URL"
 
               if [ -z "$IMAGE_URL" ]; then
