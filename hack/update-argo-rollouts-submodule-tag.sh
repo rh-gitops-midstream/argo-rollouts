@@ -29,7 +29,7 @@ git -C $ARGO_ROLLOUTS_DIR checkout $TARGET_COMMIT
 
 #2: Clear argo-rollouts-ui directory
 echo "Clearing argo-rollouts-ui directory..."
-rm -rf $UI_BUILD_DIR/*
+rm -rf "$REPO_PATH/argo-rollouts-ui-builds/*"
 
 #3: Build argo-rollouts UI
 echo "Building argo-rollouts UI..."
