@@ -1,0 +1,29 @@
+name: Verify UI Build Sync
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  verify-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive  # Ensures submodules are included
+
+      - name: Set up Node.js (for UI build verification)
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'  # Adjust to match your Node.js requirements
+
+      - name: Verify UI Build Sync
+        run: |
+          set -o pipefail
+          ./hack/verify-argo-rollouts-ui-build.sh     
+
