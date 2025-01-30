@@ -5,3 +5,7 @@
 [submodule "rollouts-plugin-trafficrouter-openshift"]
 	path = rollouts-plugin-trafficrouter-openshift
 	url = https://github.com/argoproj-labs/rollouts-plugin-trafficrouter-openshift/
+[submodule "git-lfs"]
+	path = git-lfs
+	url = https://github.com/git-lfs/git-lfs
+	branch = release-3.0
