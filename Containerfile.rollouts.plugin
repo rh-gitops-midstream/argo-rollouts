@@ -40,7 +40,7 @@ RUN make BIN_NAME=rollouts-plugin-trafficrouter-openshift-darwin-amd64 GOOS=darw
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 AS argo-rollouts-build
 
 COPY . . 
-WORKDIR argo_rollouts/
+WORKDIR argo-rollouts/
 
 ENV GOFLAGS="-mod=mod"
 ENV CGO_ENABLED=1
