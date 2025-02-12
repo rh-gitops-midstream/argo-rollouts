@@ -18,11 +18,11 @@
 # Argo Rollouts Openshift Routes Plugin Build stage which performs the actual build of Argo Rollouts binaries
 ####################################################################################################
 
-FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 as rollouts-plugin-trafficrouter-openshift-build
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 AS rollouts-plugin-trafficrouter-openshift-build
 
 COPY . .
 
-WORKDIR rollouts_plugin_trafficrouter_openshift/app
+WORKDIR rollouts-plugin-trafficrouter-openshift/
 
 ENV GOFLAGS="-mod=mod"
 
@@ -32,15 +32,15 @@ RUN make BIN_NAME=rollouts-plugin-trafficrouter-openshift-darwin-amd64 GOOS=darw
     make BIN_NAME=rollouts-plugin-trafficrouter-openshift-darwin-arm64 GOOS=darwin GOARCH=arm64 build && \
     make BIN_NAME=rollouts-plugin-trafficrouter-openshift-linux-amd64 GOOS=linux build && \
     make BIN_NAME=rollouts-plugin-trafficrouter-openshift-linux-arm64 GOOS=linux GOARCH=arm64 build && \
-    make BIN_NAME=rollouts-plugin-trafficrouter-openshift-windows-amd64.exe GOOS=windows build && \
-
+    make BIN_NAME=rollouts-plugin-trafficrouter-openshift-windows-amd64.exe GOOS=windows build
 ####################################################################################################
 # Argo Rollouts Build stage which performs the actual build of Argo Rollouts binaries
 ####################################################################################################
-FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 as argo-rollouts-build
+
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 AS argo-rollouts-build
 
 COPY . . 
-WORKDIR argo_rollouts/app
+WORKDIR argo_rollouts/
 
 ENV GOFLAGS="-mod=mod"
 ENV CGO_ENABLED=1
@@ -94,9 +94,9 @@ USER 999
 WORKDIR /home/argo-rollouts
 
 # Create the binary for the default route plugin to the plugins directory
-COPY --from=rollouts-plugin-trafficrouter-openshift-build ./rollouts_plugin_trafficrouter_openshift/app/dist/rollouts-plugin-trafficrouter-openshift ./plugins/rollouts-trafficrouter-openshift/openshift-route-plugin
+COPY --from=rollouts-plugin-trafficrouter-openshift-build ./rollouts_plugin_trafficrouter_openshift/dist/rollouts-plugin-trafficrouter-openshift ./plugins/rollouts-trafficrouter-openshift/openshift-route-plugin
 
-COPY --from=argo-rollouts-build ./argo_rollouts/app/dist/rollouts-controller /usr/local/bin/
+COPY --from=argo-rollouts-build ./argo_rollouts/dist/rollouts-controller /usr/local/bin/
 
 LABEL \
     name="openshift-gitops-1/argo-rollouts-rhel8" \
