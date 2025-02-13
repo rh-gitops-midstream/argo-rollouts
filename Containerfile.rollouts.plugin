@@ -20,27 +20,27 @@
 
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 AS rollouts-plugin-trafficrouter-openshift-build
 
-COPY . .
+WORKDIR /go/src/github.com/argoproj/argo-rollouts/rollouts-plugin-trafficrouter-openshift/
 
-WORKDIR rollouts-plugin-trafficrouter-openshift/
+COPY rollouts-plugin-trafficrouter-openshift/* .
 
 ENV GOFLAGS="-mod=mod"
+ENV CGO_ENABLED=1
+ENV GOEXPERIMENT=strictfipsruntime 
 
 # Perform the build
+RUN CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime \
+go build -v -tags strictfipsruntime -o ./dist/rollouts-plugin-trafficrouter-openshift .
 
-RUN make BIN_NAME=rollouts-plugin-trafficrouter-openshift-darwin-amd64 GOOS=darwin build && \
-    make BIN_NAME=rollouts-plugin-trafficrouter-openshift-darwin-arm64 GOOS=darwin GOARCH=arm64 build && \
-    make BIN_NAME=rollouts-plugin-trafficrouter-openshift-linux-amd64 GOOS=linux build && \
-    make BIN_NAME=rollouts-plugin-trafficrouter-openshift-linux-arm64 GOOS=linux GOARCH=arm64 build && \
-    make BIN_NAME=rollouts-plugin-trafficrouter-openshift-windows-amd64.exe GOOS=windows build
 ####################################################################################################
 # Argo Rollouts Build stage which performs the actual build of Argo Rollouts binaries
 ####################################################################################################
 
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 AS argo-rollouts-build
 
-COPY . . 
-WORKDIR argo-rollouts/
+WORKDIR /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/
+
+COPY argo-rollouts/* . 
 
 ENV GOFLAGS="-mod=mod"
 ENV CGO_ENABLED=1
@@ -64,7 +64,7 @@ go build -v -ldflags "-X github.com/argoproj/argo-rollouts/utils/version.version
 FROM registry.access.redhat.com/ubi8/ubi-minimal AS argo-rollouts-base
 
 USER root
-RUN microdnf install shadow-utils openshift-clients -y
+RUN microdnf install shadow-utils -y
 
 RUN groupadd -g 999 argo-rollouts && \
     useradd -l -r -u 999 -g argo-rollouts argo-rollouts && \
@@ -94,9 +94,9 @@ USER 999
 WORKDIR /home/argo-rollouts
 
 # Create the binary for the default route plugin to the plugins directory
-COPY --from=rollouts-plugin-trafficrouter-openshift-build ./rollouts_plugin_trafficrouter_openshift/dist/rollouts-plugin-trafficrouter-openshift ./plugins/rollouts-trafficrouter-openshift/openshift-route-plugin
+COPY --from=rollouts-plugin-trafficrouter-openshift-build /go/src/github.com/argoproj/argo-rollouts/rollouts-plugin-trafficrouter-openshift/dist/rollouts-plugin-trafficrouter-openshift ./plugins/rollouts-trafficrouter-openshift/openshift-route-plugin
 
-COPY --from=argo-rollouts-build ./argo_rollouts/dist/rollouts-controller /usr/local/bin/
+COPY --from=argo-rollouts-build /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/dist/rollouts-controller /usr/local/bin/
 
 LABEL \
     name="openshift-gitops-1/argo-rollouts-rhel8" \
@@ -116,4 +116,5 @@ LABEL \
     description="Red Hat Openshift GitOps Argo Rollouts"
 
 ENTRYPOINT [ "/usr/local/bin/rollouts-controller"]
+
 
