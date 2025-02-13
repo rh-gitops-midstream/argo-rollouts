@@ -20,17 +20,18 @@
 
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 AS rollouts-plugin-trafficrouter-openshift-build
 
-WORKDIR /go/src/github.com/argoproj/argo-rollouts/rollouts-plugin-trafficrouter-openshift/
+WORKDIR /go/src/github.com/argoproj/argo-rollouts
 
-COPY rollouts-plugin-trafficrouter-openshift/* .
+COPY . .
+
+WORKDIR /go/src/github.com/argoproj/argo-rollouts/rollouts-plugin-trafficrouter-openshift/
 
 ENV GOFLAGS="-mod=mod"
 ENV CGO_ENABLED=1
-ENV GOEXPERIMENT=strictfipsruntime 
+ENV GOEXPERIMENT=strictfipsruntime
 
 # Perform the build
-RUN CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime \
-go build -v -tags strictfipsruntime -o ./dist/rollouts-plugin-trafficrouter-openshift .
+RUN CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime go build -v -tags strictfipsruntime  -o ./dist/rollouts-plugin-trafficrouter-openshift .
 
 ####################################################################################################
 # Argo Rollouts Build stage which performs the actual build of Argo Rollouts binaries
@@ -38,9 +39,11 @@ go build -v -tags strictfipsruntime -o ./dist/rollouts-plugin-trafficrouter-open
 
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_golang_1.22 AS argo-rollouts-build
 
-WORKDIR /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/
+WORKDIR /go/src/github.com/argoproj/argo-rollouts
 
-COPY argo-rollouts/* . 
+COPY . . 
+
+WORKDIR /go/src/github.com/argoproj/argo-rollouts/argo-rollouts/
 
 ENV GOFLAGS="-mod=mod"
 ENV CGO_ENABLED=1
@@ -64,7 +67,7 @@ go build -v -ldflags "-X github.com/argoproj/argo-rollouts/utils/version.version
 FROM registry.access.redhat.com/ubi8/ubi-minimal AS argo-rollouts-base
 
 USER root
-RUN microdnf install shadow-utils -y
+RUN microdnf install shadow-utils  -y
 
 RUN groupadd -g 999 argo-rollouts && \
     useradd -l -r -u 999 -g argo-rollouts argo-rollouts && \
